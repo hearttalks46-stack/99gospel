@@ -1,4 +1,5 @@
-import { loadDotEnv } from "./load-env.js";
+import { join } from "node:path";
+import { envKeyNames, loadDotEnv } from "./load-env.js";
 
 /** Hostinger mailbox used as from-address and contact inbox. */
 export const BUSINESS_EMAIL = "support@cryptosolutionagency.com";
@@ -38,11 +39,6 @@ export class EmailSendError extends Error {
 export function requireEnv(name: string, value: string | undefined): string {
   const trimmed = value?.trim();
   if (!trimmed) {
-    if (name === "SMTP_PASS") {
-      throw new EmailConfigError(
-        "Missing SMTP_PASS. Add the Hostinger mailbox password for support@cryptosolutionagency.com to your .env file (hPanel → Emails). Host and port alone are not enough.",
-      );
-    }
     throw new EmailConfigError(`Missing required environment variable: ${name}`);
   }
   return trimmed;
@@ -102,12 +98,19 @@ export function createSmtpSender(options: {
 }
 
 export function createDefaultSender(): EmailSender {
-  loadDotEnv();
+  const loadedFiles = loadDotEnv();
+  const pass = process.env.SMTP_PASS ?? "";
+  if (!pass.trim()) {
+    const files = loadedFiles.length ? loadedFiles.join("; ") : "(no .env file found)";
+    throw new EmailConfigError(
+      `Missing SMTP_PASS. Loaded: ${files}. Keys present: ${envKeyNames().join(", ") || "(none)"}. Put SMTP_PASS in ${join(process.cwd(), ".env")} and save the file.`,
+    );
+  }
   return createSmtpSender({
     host: process.env.SMTP_HOST,
     port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined,
     user: process.env.SMTP_USER ?? BUSINESS_EMAIL,
-    pass: process.env.SMTP_PASS ?? "",
+    pass,
     defaultFrom: process.env.EMAIL_FROM ?? DEFAULT_FROM,
   });
 }

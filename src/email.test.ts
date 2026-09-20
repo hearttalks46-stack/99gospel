@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -136,4 +136,26 @@ test("loadDotEnv parses Hostinger-style .env lines", () => {
     "Crypto Solution Agency <support@cryptosolutionagency.com>",
   );
   assert.equal(process.env.SMTP_PORT, "465");
+});
+
+test("loadDotEnv keeps passwords that end with #", () => {
+  const dir = mkdtempSync(join(tmpdir(), "email-hash-"));
+  const file = join(dir, ".env");
+  writeFileSync(file, "SMTP_PASS=FakePass2003#\n");
+  delete process.env.SMTP_PASS;
+  loadDotEnv(file);
+  assert.equal(process.env.SMTP_PASS, "FakePass2003#");
+});
+
+test("loadDotEnv fills SMTP_PASS from a parent folder .env", () => {
+  const root = mkdtempSync(join(tmpdir(), "email-parent-"));
+  const child = join(root, "99gospel");
+  mkdirSync(child);
+  writeFileSync(join(root, ".env"), "SMTP_PASS=from-parent\n");
+  writeFileSync(join(child, ".env"), "EMAIL_TO=support@cryptosolutionagency.com\n");
+  delete process.env.SMTP_PASS;
+  delete process.env.EMAIL_TO;
+  loadDotEnv(undefined, child, { stopAt: root });
+  assert.equal(process.env.SMTP_PASS, "from-parent");
+  assert.equal(process.env.EMAIL_TO, "support@cryptosolutionagency.com");
 });
