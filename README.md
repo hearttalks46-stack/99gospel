@@ -41,10 +41,25 @@ npm run send:test
 
 ## Live website (Hostinger)
 
-`npm run send:test` only runs on your PC. [cryptosolutionagency.com](https://cryptosolutionagency.com) is a separate Next.js app. The contact form already posts to `/api/contact`, but that route was returning success **without sending mail**.
+The public site still uses a dummy `/api/contact` that returns success **without sending mail**. A laptop `.env` does not affect https://cryptosolutionagency.com.
 
-1. Copy `src/email.ts`, `src/load-env.ts`, `src/contact-api.ts`, and `app/api/contact/route.ts` into the **same Next.js project you deploy** (the v0 site), then `npm install nodemailer`.
-2. In **hPanel → Websites → cryptosolutionagency.com → Node.js** (or **Environment variables**), add:
+### Check
+
+Open this URL in the browser:
+
+https://cryptosolutionagency.com/api/contact/
+
+- Old (broken) app: empty page or HTTP 405
+- New app, missing password: `{"ok":true,"live":true,"smtpPassSet":false,...}`
+- New app, ready: `"smtpPassSet":true`
+
+A working send also returns an `id` field. The current live response is only `{"success":true,"message":"Contact form submitted successfully"}` with no `id`.
+
+### Fix
+
+1. In the **Next.js project Hostinger deploys** (the v0 app with `app/` and `components/`), replace `app/api/contact/route.ts` with the file from this repo.
+2. In that same project: `npm install nodemailer`
+3. hPanel → the cryptosolutionagency.com **Node.js** app → **Environment variables**:
 
    - `EMAIL_FROM=Crypto Solution Agency <support@cryptosolutionagency.com>`
    - `EMAIL_TO=support@cryptosolutionagency.com`
@@ -53,9 +68,9 @@ npm run send:test
    - `SMTP_USER=support@cryptosolutionagency.com`
    - `SMTP_PASS=` (mailbox password)
 
-   A laptop `.env` is **not** used on the live site.
-3. Restart / rebuild the Node.js app so the new route and env vars load.
-4. Submit the live **Get in Touch** form and check the support inbox.
+4. **Save**, then **Restart** / **Rebuild** / **Redeploy** that Node app. Uploading `.env` by FTP is not enough unless Hostinger is told to use it.
+5. Reload `/api/contact/` until `smtpPassSet` is `true`, then submit **Get in Touch** again.
+6. Check the support inbox and spam.
 
 ## Tests
 
