@@ -1,32 +1,27 @@
-# Email sending (Resend)
+# Email sending via support@cryptosolutionagency.com
 
-This repo sends transactional email through [Resend](https://resend.com). The same pattern works with SendGrid; Resend is wired up because its Node SDK matches the previous TODO.
+Mail is sent through the existing Hostinger mailbox `support@cryptosolutionagency.com` (SMTP). Contact-form messages are delivered to that same inbox. Resend/SendGrid is not required.
 
 ## Setup
 
-1. Create a Resend account and verify a sending domain.
-2. Copy `.env.example` to `.env` and fill in:
+1. Copy `.env.example` to `.env`.
+2. Set `SMTP_PASS` to the **mailbox password** for `support@cryptosolutionagency.com` (Hostinger hPanel → **Emails** → that account). This is not your Hostinger login password unless you set them the same.
+3. Leave the other values as they are unless Hostinger changes SMTP settings.
 
-   - `RESEND_API_KEY` — from the Resend dashboard
-   - `EMAIL_FROM` — a verified sender, e.g. `99 Gospel <noreply@yourdomain.com>`
-   - `EMAIL_TO` — the inbox that should receive contact-form messages
+```bash
+cp .env.example .env
+npm install
+```
 
-3. Install dependencies:
-
-   ```bash
-   npm install
-   ```
-
-## Send a message
+## Send
 
 ```ts
 import { sendEmail, sendContactEmail } from "./src/email.ts";
 
 await sendEmail({
-  to: "reader@example.com",
+  to: "support@cryptosolutionagency.com",
   subject: "Welcome",
-  html: "<p>Thanks for joining 99 Gospel.</p>",
-  text: "Thanks for joining 99 Gospel.",
+  html: "<p>Thanks for writing.</p>",
 });
 
 await sendContactEmail({
@@ -36,14 +31,13 @@ await sendContactEmail({
 });
 ```
 
-`sendContactEmail` uses `EMAIL_TO` as the destination and sets `replyTo` to the visitor's address so you can answer from your inbox.
+`sendContactEmail` always delivers to `support@cryptosolutionagency.com` and sets Reply-To to the visitor so you can answer from that mailbox.
 
-## Errors
+After `SMTP_PASS` is set, send a test to yourself:
 
-- `EmailConfigError` — missing `RESEND_API_KEY` or `EMAIL_FROM`
-- `EmailSendError` — Resend rejected the request, or required fields were blank
-
-Do not commit API keys. Keep them in `.env` or your host's secret store.
+```bash
+node --env-file=.env --import tsx src/send-test.ts
+```
 
 ## Tests
 

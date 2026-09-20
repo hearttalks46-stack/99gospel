@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  BUSINESS_EMAIL,
+  DEFAULT_FROM,
   EmailConfigError,
   EmailSendError,
-  createResendSender,
+  createSmtpSender,
   formatContactEmail,
   sendContactEmail,
   sendEmail,
@@ -14,7 +16,7 @@ test("sendEmail uses the injected sender", async () => {
   const sent: SendEmailInput[] = [];
   const result = await sendEmail(
     {
-      to: "inbox@example.com",
+      to: BUSINESS_EMAIL,
       subject: "Hello",
       html: "<p>Hi</p>",
     },
@@ -26,68 +28,88 @@ test("sendEmail uses the injected sender", async () => {
 
   assert.equal(result.id, "email_123");
   assert.equal(sent.length, 1);
-  assert.equal(sent[0]?.subject, "Hello");
+  assert.equal(sent[0]?.to, BUSINESS_EMAIL);
 });
 
 test("sendEmail rejects empty content", async () => {
   await assert.rejects(
     () =>
       sendEmail(
-        { to: "a@b.com", subject: "x", html: "   " },
+        { to: BUSINESS_EMAIL, subject: "x", html: "   " },
         async () => ({ id: "nope" }),
       ),
     EmailSendError,
   );
 });
 
-test("createResendSender maps Resend errors", async () => {
-  const sender = createResendSender({
-    apiKey: "re_test",
-    defaultFrom: "99 Gospel <noreply@example.com>",
-    resend: {
-      emails: {
-        send: async () => ({ data: null, error: { message: "invalid from" } }),
+test("createSmtpSender maps SMTP errors", async () => {
+  const sender = createSmtpSender({
+    user: BUSINESS_EMAIL,
+    pass: "secret",
+    transporter: {
+      sendMail: async () => {
+        throw new Error("Invalid login");
       },
     },
   });
 
   await assert.rejects(
-    () => sender({ to: "a@b.com", subject: "Hi", html: "<p>Hi</p>" }),
+    () => sender({ to: BUSINESS_EMAIL, subject: "Hi", html: "<p>Hi</p>" }),
     (error: unknown) => {
       assert.ok(error instanceof EmailSendError);
-      assert.match(error.message, /invalid from/);
+      assert.match(error.message, /Invalid login/);
       return true;
     },
   );
 });
 
-test("createResendSender requires API key", () => {
+test("createSmtpSender requires mailbox password", () => {
   assert.throws(
     () =>
-      createResendSender({
-        apiKey: "  ",
-        defaultFrom: "noreply@example.com",
+      createSmtpSender({
+        user: BUSINESS_EMAIL,
+        pass: "  ",
       }),
     EmailConfigError,
   );
 });
 
-test("formatContactEmail builds a reply-to message", () => {
-  process.env.EMAIL_TO = "hello@example.com";
+test("createSmtpSender sends from the business mailbox", async () => {
+  let from = "";
+  const sender = createSmtpSender({
+    user: BUSINESS_EMAIL,
+    pass: "secret",
+    transporter: {
+      sendMail: async (payload) => {
+        from = payload.from;
+        return { messageId: "<smtp-id>" };
+      },
+    },
+  });
+
+  const result = await sender({
+    to: BUSINESS_EMAIL,
+    subject: "Hi",
+    html: "<p>Hi</p>",
+  });
+  assert.equal(result.id, "<smtp-id>");
+  assert.equal(from, DEFAULT_FROM);
+});
+
+test("formatContactEmail delivers to the business inbox", () => {
+  delete process.env.EMAIL_TO;
   const content = formatContactEmail({
     name: "Ada",
     email: "ada@example.com",
     message: "Hello <world>",
   });
 
-  assert.equal(content.to, "hello@example.com");
+  assert.equal(content.to, BUSINESS_EMAIL);
   assert.equal(content.replyTo, "ada@example.com");
   assert.match(content.html, /Hello &lt;world&gt;/);
-  assert.match(content.text ?? "", /Ada <ada@example.com>/);
 });
 
 test("sendContactEmail sends formatted content", async () => {
-  process.env.EMAIL_TO = "hello@example.com";
   const result = await sendContactEmail(
     { name: "Ada", email: "ada@example.com", message: "Hello" },
     async () => ({ id: "contact_1" }),

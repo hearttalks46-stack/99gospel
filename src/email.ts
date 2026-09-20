@@ -1,3 +1,9 @@
+/** Hostinger mailbox used as from-address and contact inbox. */
+export const BUSINESS_EMAIL = "support@cryptosolutionagency.com";
+export const DEFAULT_FROM = `Crypto Solution Agency <${BUSINESS_EMAIL}>`;
+export const DEFAULT_SMTP_HOST = "smtp.hostinger.com";
+export const DEFAULT_SMTP_PORT = 465;
+
 export type SendEmailInput = {
   to: string | string[];
   subject: string;
@@ -35,49 +41,67 @@ export function requireEnv(name: string, value: string | undefined): string {
   return trimmed;
 }
 
-type ResendLike = {
-  emails: {
-    send: (payload: {
-      from: string;
-      to: string | string[];
-      subject: string;
-      html: string;
-      text?: string;
-      replyTo?: string;
-    }) => Promise<{ data: { id: string } | null; error: { message: string } | null }>;
-  };
+type SmtpTransporter = {
+  sendMail: (payload: {
+    from: string;
+    to: string | string[];
+    subject: string;
+    html: string;
+    text?: string;
+    replyTo?: string;
+  }) => Promise<{ messageId?: string }>;
 };
 
-export function createResendSender(options: {
-  apiKey: string;
-  defaultFrom: string;
-  resend?: ResendLike;
+export function createSmtpSender(options: {
+  host?: string;
+  port?: number;
+  user: string;
+  pass: string;
+  defaultFrom?: string;
+  transporter?: SmtpTransporter;
 }): EmailSender {
-  const apiKey = requireEnv("RESEND_API_KEY", options.apiKey);
-  const defaultFrom = requireEnv("EMAIL_FROM", options.defaultFrom);
+  const user = requireEnv("SMTP_USER", options.user);
+  const pass = requireEnv("SMTP_PASS", options.pass);
+  const defaultFrom = options.defaultFrom?.trim() || DEFAULT_FROM;
+  const host = options.host?.trim() || DEFAULT_SMTP_HOST;
+  const port = options.port ?? DEFAULT_SMTP_PORT;
 
   return async (input) => {
     const from = input.from?.trim() || defaultFrom;
-    const client: ResendLike =
-      options.resend ?? new (await import("resend")).Resend(apiKey);
+    const transporter: SmtpTransporter =
+      options.transporter ??
+      (await import("nodemailer")).default.createTransport({
+        host,
+        port,
+        secure: port === 465,
+        auth: { user, pass },
+      });
 
-    const { data, error } = await client.emails.send({
-      from,
-      to: input.to,
-      subject: input.subject,
-      html: input.html,
-      text: input.text,
-      replyTo: input.replyTo,
-    });
-
-    if (error) {
-      throw new EmailSendError(error.message);
+    try {
+      const info = await transporter.sendMail({
+        from,
+        to: input.to,
+        subject: input.subject,
+        html: input.html,
+        text: input.text,
+        replyTo: input.replyTo,
+      });
+      return { id: info.messageId || "sent" };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "SMTP send failed";
+      throw new EmailSendError(message);
     }
-    if (!data?.id) {
-      throw new EmailSendError("Resend returned no email id");
-    }
-    return { id: data.id };
   };
+}
+
+export function createDefaultSender(): EmailSender {
+  return createSmtpSender({
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined,
+    user: process.env.SMTP_USER ?? BUSINESS_EMAIL,
+    pass: process.env.SMTP_PASS ?? "",
+    defaultFrom: process.env.EMAIL_FROM ?? DEFAULT_FROM,
+  });
 }
 
 export type ContactMessage = {
@@ -103,7 +127,7 @@ export function formatContactEmail(contact: ContactMessage): SendEmailInput {
       .replaceAll('"', "&quot;");
 
   return {
-    to: requireEnv("EMAIL_TO", process.env.EMAIL_TO),
+    to: process.env.EMAIL_TO?.trim() || BUSINESS_EMAIL,
     subject: `New message from ${name}`,
     replyTo: email,
     text: `${name} <${email}>\n\n${message}`,
@@ -113,10 +137,7 @@ export function formatContactEmail(contact: ContactMessage): SendEmailInput {
 
 export async function sendEmail(
   input: SendEmailInput,
-  sender: EmailSender = createResendSender({
-    apiKey: process.env.RESEND_API_KEY ?? "",
-    defaultFrom: process.env.EMAIL_FROM ?? "",
-  }),
+  sender: EmailSender = createDefaultSender(),
 ): Promise<SendEmailResult> {
   if (!input.subject.trim()) {
     throw new EmailSendError("subject is required");
