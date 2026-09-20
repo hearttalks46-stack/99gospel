@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "test": "tsx --test src/email.test.ts",
+    "test": "tsx --test src/*.test.ts",
     "send:test": "tsx src/send-test.ts"
   },
   "dependencies": {
