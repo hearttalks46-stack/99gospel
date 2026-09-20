@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "test": "node --import tsx --test src/email.test.ts",
-    "send:test": "node --env-file=.env --import tsx src/send-test.ts"
+    "test": "tsx --test src/email.test.ts",
+    "send:test": "tsx src/send-test.ts"
   },
   "dependencies": {
     "nodemailer": "^10.0.10"

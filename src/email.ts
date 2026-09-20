@@ -1,3 +1,5 @@
+import { loadDotEnv } from "./load-env.js";
+
 /** Hostinger mailbox used as from-address and contact inbox. */
 export const BUSINESS_EMAIL = "support@cryptosolutionagency.com";
 export const DEFAULT_FROM = `Crypto Solution Agency <${BUSINESS_EMAIL}>`;
@@ -36,6 +38,11 @@ export class EmailSendError extends Error {
 export function requireEnv(name: string, value: string | undefined): string {
   const trimmed = value?.trim();
   if (!trimmed) {
+    if (name === "SMTP_PASS") {
+      throw new EmailConfigError(
+        "Missing SMTP_PASS. Add the Hostinger mailbox password for support@cryptosolutionagency.com to your .env file (hPanel → Emails). Host and port alone are not enough.",
+      );
+    }
     throw new EmailConfigError(`Missing required environment variable: ${name}`);
   }
   return trimmed;
@@ -95,6 +102,7 @@ export function createSmtpSender(options: {
 }
 
 export function createDefaultSender(): EmailSender {
+  loadDotEnv();
   return createSmtpSender({
     host: process.env.SMTP_HOST,
     port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined,

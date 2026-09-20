@@ -1,4 +1,7 @@
 import { BUSINESS_EMAIL, sendEmail } from "./email.js";
+import { loadDotEnv } from "./load-env.js";
+
+loadDotEnv();
 
 const result = await sendEmail({
   to: BUSINESS_EMAIL,

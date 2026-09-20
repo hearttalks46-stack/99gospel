@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 import {
   BUSINESS_EMAIL,
@@ -11,6 +14,7 @@ import {
   sendEmail,
   type SendEmailInput,
 } from "./email.ts";
+import { loadDotEnv } from "./load-env.ts";
 
 test("sendEmail uses the injected sender", async () => {
   const sent: SendEmailInput[] = [];
@@ -115,4 +119,21 @@ test("sendContactEmail sends formatted content", async () => {
     async () => ({ id: "contact_1" }),
   );
   assert.equal(result.id, "contact_1");
+});
+
+test("loadDotEnv parses Hostinger-style .env lines", () => {
+  const dir = mkdtempSync(join(tmpdir(), "email-env-"));
+  const file = join(dir, ".env");
+  writeFileSync(
+    file,
+    "EMAIL_FROM=Crypto Solution Agency <support@cryptosolutionagency.com>\nSMTP_PORT=465\n",
+  );
+  delete process.env.EMAIL_FROM;
+  delete process.env.SMTP_PORT;
+  loadDotEnv(file);
+  assert.equal(
+    process.env.EMAIL_FROM,
+    "Crypto Solution Agency <support@cryptosolutionagency.com>",
+  );
+  assert.equal(process.env.SMTP_PORT, "465");
 });

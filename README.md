@@ -36,7 +36,7 @@ await sendContactEmail({
 After `SMTP_PASS` is set, send a test to yourself:
 
 ```bash
-node --env-file=.env --import tsx src/send-test.ts
+npm run send:test
 ```
 
 ## Tests
