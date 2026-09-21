@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Contact | Crypto Solution Agency",
+  title: "Crypto Solution Agency | Blockchain Network Security",
   description:
-    "Send your name, email, and message to our business inbox.",
+    "Blockchain network security and protection. Send your details to our business inbox.",
 };
 
 export default function RootLayout({
