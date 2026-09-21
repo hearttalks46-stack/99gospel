@@ -33,11 +33,13 @@ await sendContactEmail({
 
 `sendContactEmail` always delivers to `support@cryptosolutionagency.com` and sets Reply-To to the visitor so you can answer from that mailbox.
 
-After `SMTP_PASS` is set, send a test to yourself:
+After `SMTP_PASS` is set, send a test to yourself (same SMTP settings and contact-form email as the API):
 
 ```bash
 npm run send:test
 ```
+
+That only tests your PC. The live site needs the contact route deployed and the same variables in hPanel.
 
 ## Live website (Hostinger)
 
